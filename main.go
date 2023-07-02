@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	input := `"Hello"`
+	input := `42 "Hello"`
 	l := lexer.New(input)
 	p := parser.New(l)
 	program := p.Program()

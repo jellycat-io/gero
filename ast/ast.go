@@ -7,7 +7,7 @@ type NodeType string
 type Node interface{}
 
 type Program struct {
-	Body Expression
+	Body []Expression
 }
 
 type Statement interface {

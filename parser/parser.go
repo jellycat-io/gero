@@ -25,9 +25,16 @@ func New(l *lexer.Lexer) *Parser {
 	return p
 }
 
+func (p *Parser) Errors() []string {
+	return p.errors
+}
+
 func (p *Parser) Program() *ast.Program {
 	program := &ast.Program{}
-	program.Body = p.Literal()
+	program.Body = []ast.Expression{}
+	for p.peekToken.Type != token.EOF {
+		program.Body = append(program.Body, p.Literal())
+	}
 	return program
 }
 
