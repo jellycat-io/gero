@@ -7,44 +7,72 @@ import (
 	"github.com/jellycat-io/gero/lexer"
 )
 
-func TestParsingIntegerLiteral(t *testing.T) {
-	input := `5`
+func TestParsingStatementList(t *testing.T) {
+	input := `
+		5;
+		"hello";
+	`
 
 	l := lexer.New(input)
 	p := New(l)
 	program := p.Program()
+	checkParserErrors(t, p)
 
-	if len(program.Body) != 1 {
-		t.Fatalf("Program has wrong number of expressions. Expected=%d, got=%d", 1, len(program.Body))
-	}
-	literal, ok := program.Body[0].(*ast.IntegerLiteral)
-	if !ok {
-		t.Fatalf("program.Body[0] is not ast.IntegerLiteral, got=%T", program.Body[0])
-	}
-
-	if literal.Value != 5 {
-		t.Errorf("literal.Value not %d, got=%d", 5, literal.Value)
+	if len(program.Body) != 2 {
+		t.Fatalf("Program has wrong number of statements. Expected=%d, got=%d", 2, len(program.Body))
 	}
 }
 
-func TestParsingStringLiteral(t *testing.T) {
-	input := `"hello world"`
+func TestParsingExpressionStatement(t *testing.T) {
+	input := `
+		5;
+		"hello";
+	`
 
 	l := lexer.New(input)
 	p := New(l)
 	program := p.Program()
+	checkParserErrors(t, p)
 
-	if len(program.Body) != 1 {
-		t.Fatalf("Program has wrong number of expressions. Expected=%d, got=%d", 1, len(program.Body))
-	}
-	literal, ok := program.Body[0].(*ast.StringLiteral)
+	_, ok := program.Body[0].(*ast.ExpressionStatement)
 	if !ok {
-		t.Fatalf("program.Body[0] is not ast.StringLiteral, got=%T", program.Body[0])
+		t.Fatalf("program.Body[0] is not ast.ExpressionStatement, got=%T", program.Body[0])
 	}
 
-	if literal.Value != "hello world" {
-		t.Errorf("literal.Value not %s, got=%s", "hello world", literal.Value)
+	_, ok = program.Body[1].(*ast.ExpressionStatement)
+	if !ok {
+		t.Fatalf("program.Body[1] is not ast.ExpressionStatement, got=%T", program.Body[1])
 	}
+}
+
+func TestParsingIntegerLiteral(t *testing.T) {
+	input := `5;`
+
+	l := lexer.New(input)
+	p := New(l)
+	program := p.Program()
+	checkParserErrors(t, p)
+
+	stmt := program.Body[0].(*ast.ExpressionStatement)
+
+	testIntegerLiteral(t, stmt.Expression, 5)
+}
+
+func TestParsingStringLiteral(t *testing.T) {
+	input := `
+		"hello world";
+		'hello world';
+	`
+
+	l := lexer.New(input)
+	p := New(l)
+	program := p.Program()
+	checkParserErrors(t, p)
+
+	stmt := program.Body[0].(*ast.ExpressionStatement)
+	testStringLiteral(t, stmt.Expression, "hello world")
+	stmt = program.Body[1].(*ast.ExpressionStatement)
+	testStringLiteral(t, stmt.Expression, "hello world")
 }
 
 func checkParserErrors(t *testing.T, p *Parser) {
@@ -58,4 +86,51 @@ func checkParserErrors(t *testing.T, p *Parser) {
 		t.Errorf("Parser error: %q", msg)
 	}
 	t.FailNow()
+}
+
+func testLiteralExpression(
+	t *testing.T,
+	exp ast.Expression,
+	expected interface{},
+) bool {
+	switch v := expected.(type) {
+	case int:
+		return testIntegerLiteral(t, exp, int64(v))
+	case int64:
+		return testIntegerLiteral(t, exp, v)
+	case string:
+		return testStringLiteral(t, exp, v)
+	}
+	t.Errorf("type of exp not handled. got=%T", exp)
+	return false
+}
+
+func testIntegerLiteral(t *testing.T, il ast.Expression, value int64) bool {
+	lit, ok := il.(*ast.IntegerLiteral)
+	if !ok {
+		t.Errorf("Literal is not *ast.IntegerLiteral. got=%T", il)
+		return false
+	}
+
+	if lit.Value != value {
+		t.Errorf("Literal.Value not %d. got=%d", value, lit.Value)
+		return false
+	}
+
+	return true
+}
+
+func testStringLiteral(t *testing.T, il ast.Expression, value string) bool {
+	lit, ok := il.(*ast.StringLiteral)
+	if !ok {
+		t.Errorf("Literal is not *ast.StringLiteral. got=%T", il)
+		return false
+	}
+
+	if lit.Value != value {
+		t.Errorf("Literal.Value not %s. got=%s", value, lit.Value)
+		return false
+	}
+
+	return true
 }

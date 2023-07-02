@@ -6,7 +6,6 @@ package parser
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/jellycat-io/gero/ast"
@@ -24,7 +23,7 @@ func New(l *lexer.Lexer) *Parser {
 	p := &Parser{l: l}
 	tok, err := p.l.NextToken()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf(err.Error())
 	}
 	p.peekToken = tok
 	return p
@@ -34,15 +33,71 @@ func (p *Parser) Errors() []string {
 	return p.errors
 }
 
+/**
+ * Main entry point.
+ *
+ * Program
+ * 	: StatementList
+ * 	;
+ */
 func (p *Parser) Program() *ast.Program {
-	program := &ast.Program{}
-	program.Body = []ast.Expression{}
-	for !p.isAtEnd() {
-		program.Body = append(program.Body, p.Literal())
-	}
-	return program
+	return ast.NewProgram(p.StatementList())
 }
 
+/**
+ * StatementList
+ * 	: Statement
+ * 	| StatementList Statement -> Statement*
+ * 	;
+ */
+func (p *Parser) StatementList() []ast.Statement {
+	statementList := []ast.Statement{p.Statement()}
+
+	for !p.isAtEnd() {
+		statementList = append(statementList, p.Statement())
+	}
+
+	return statementList
+}
+
+/**
+ * Statement
+ * 	: ExpressionStatement
+ * 	;
+ */
+func (p *Parser) Statement() ast.Statement {
+	return p.ExpressionStatement()
+}
+
+/**
+ * ExpressionStatement
+ * 	: Expression ';'
+ * 	;
+ */
+func (p *Parser) ExpressionStatement() *ast.ExpressionStatement {
+	exp := p.Expression()
+
+	p.eat(token.SEMI)
+
+	return ast.NewExpressionStatement(p.peekToken, exp)
+}
+
+/**
+ * Expression
+ * 	: Literal
+ * 	;
+ */
+func (p *Parser) Expression() ast.Expression {
+	return p.Literal()
+}
+
+/**
+ * Literal
+ * 	: IntegerLiteral
+ * 	| FloatLiteral
+ * 	| StringLiteral
+ * 	;
+ */
 func (p *Parser) Literal() ast.Expression {
 	switch p.peekToken.Type {
 	case token.INT:
@@ -50,43 +105,50 @@ func (p *Parser) Literal() ast.Expression {
 	case token.STRING:
 		return p.StringLiteral()
 	default:
-		msg := fmt.Sprintf("Unexpected literal: %q", p.peekToken.Type)
+		msg := fmt.Sprintf("Unexpected literal %q at line %d", p.peekToken.Type, p.peekToken.Line)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
 }
 
 func (p *Parser) IntegerLiteral() *ast.IntegerLiteral {
-	tok := p.eat(token.INT)
+	tok, ok := p.eat(token.INT)
+	if !ok {
+		return nil
+	}
 	value, err := strconv.ParseInt(tok.Literal, 0, 64)
 	if err != nil {
-		msg := fmt.Sprintf("could not parse %q as integer", tok.Literal)
+		msg := fmt.Sprintf("could not parse %q as integer at line %d", tok.Literal, tok.Line)
 		p.errors = append(p.errors, msg)
 	}
 
-	return &ast.IntegerLiteral{Token: tok, Value: int64(value)}
+	return ast.NewIntegerLiteral(tok, int64(value))
 }
 
 func (p *Parser) StringLiteral() *ast.StringLiteral {
-	tok := p.eat(token.STRING)
-	return &ast.StringLiteral{Token: tok, Value: tok.Literal[1 : len(tok.Literal)-1]}
+	tok, ok := p.eat(token.STRING)
+	if !ok {
+		return nil
+	}
+	return ast.NewStringLiteral(tok, tok.Literal[1:len(tok.Literal)-1])
 }
 
-func (p *Parser) eat(tokenType token.TokenType) token.Token {
+func (p *Parser) eat(tokenType token.TokenType) (t token.Token, ok bool) {
 	token := p.peekToken
 
 	if token.Type != tokenType {
-		msg := fmt.Sprintf("Unexpected token %q, expected %q", token.Literal, tokenType)
+		msg := fmt.Sprintf("Unexpected token %q, expected %q at line %d", token.Literal, tokenType, token.Line)
 		p.errors = append(p.errors, msg)
+		return token, false
 	}
 
 	tok, err := p.l.NextToken()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf(err.Error())
 	}
 	p.peekToken = tok
 
-	return token
+	return token, true
 }
 
 func (p *Parser) isAtEnd() bool {

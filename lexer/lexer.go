@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/TwiN/go-color"
 	"github.com/jellycat-io/gero/token"
 )
 
@@ -16,6 +17,9 @@ var specs = map[string]token.TokenType{
 	"^\\n":                    token.NEWLINE,
 	"^\\/\\/.*":               token.COMMENT,
 	"^\\/\\*[\\s\\S]*?\\*\\/": token.COMMENT,
+	//-----------------------------------
+	// Symbols, delimiters
+	"^;": token.SEMI,
 	//-----------------------------------
 	// Numbers
 	"^[0-9]*(\\.[0-9]+)": token.FLOAT,
@@ -65,7 +69,11 @@ func (l *Lexer) NextToken() (token.Token, error) {
 		return l.newToken(tokenType, value), nil
 	}
 
-	return l.newToken(token.ILLEGAL, ""), errors.New(fmt.Sprintf(`Unexpected token "%s" at line %d`, string(s[0]), l.line))
+	return l.newToken(token.ILLEGAL, ""), errors.New(color.InRed(fmt.Sprintf(
+		`Syntax error: Unexpected token "%s" at line %d`,
+		string(s[0]),
+		l.line,
+	)))
 }
 
 func (l *Lexer) hasMoreTokens() bool {
@@ -81,7 +89,6 @@ func (l *Lexer) match(regex string, input string) (s string, ok bool) {
 	}
 
 	l.cursor += len(matched)
-	fmt.Printf(`"%v"`, matched)
 	return matched, true
 }
 
