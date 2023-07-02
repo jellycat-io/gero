@@ -45,6 +45,49 @@ func TestParsingExpressionStatement(t *testing.T) {
 	}
 }
 
+func TestParsingBlockStatement(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{`{ 5; "hello world"; }`, 2},
+		{`{}`, 0},
+		{`{ 5; { "hello world"; 10; } }`, 2},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.Program()
+		checkParserErrors(t, p)
+
+		block, ok := program.Body[0].(*ast.BlockStatement)
+		if !ok {
+			t.Fatalf("program.Body[0] is not ast.BlockStatement, got=%T", program.Body[0])
+		}
+
+		if len(block.Body) != tt.expected {
+			t.Fatalf("Program has wrong number of statements. Expected=%d, got=%d", tt.expected, len(block.Body))
+		}
+
+		if len(block.Body) > 0 {
+			stmt := block.Body[0].(*ast.ExpressionStatement)
+			testIntegerLiteral(t, stmt.Expression, 5)
+
+			nested, ok := block.Body[1].(*ast.BlockStatement)
+			if ok {
+				if len(nested.Body) != tt.expected {
+					t.Fatalf("Program has wrong number of statements. Expected=%d, got=%d", tt.expected, len(block.Body))
+				}
+			} else {
+				stmt = block.Body[1].(*ast.ExpressionStatement)
+				testStringLiteral(t, stmt.Expression, "hello world")
+			}
+
+		}
+	}
+}
+
 func TestParsingIntegerLiteral(t *testing.T) {
 	input := `5;`
 

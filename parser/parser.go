@@ -41,7 +41,7 @@ func (p *Parser) Errors() []string {
  * 	;
  */
 func (p *Parser) Program() *ast.Program {
-	return ast.NewProgram(p.StatementList())
+	return ast.NewProgram(p.StatementList(token.EOF))
 }
 
 /**
@@ -50,10 +50,10 @@ func (p *Parser) Program() *ast.Program {
  * 	| StatementList Statement -> Statement*
  * 	;
  */
-func (p *Parser) StatementList() []ast.Statement {
+func (p *Parser) StatementList(stopTokenType token.TokenType) []ast.Statement {
 	statementList := []ast.Statement{p.Statement()}
 
-	for !p.isAtEnd() {
+	for !p.match(stopTokenType) {
 		statementList = append(statementList, p.Statement())
 	}
 
@@ -63,10 +63,36 @@ func (p *Parser) StatementList() []ast.Statement {
 /**
  * Statement
  * 	: ExpressionStatement
+ * 	| BlockStatement
  * 	;
  */
 func (p *Parser) Statement() ast.Statement {
-	return p.ExpressionStatement()
+	switch p.peekToken.Type {
+	case token.LBRACE:
+		return p.BlockStatement()
+	default:
+		return p.ExpressionStatement()
+	}
+}
+
+/**
+ * BlockStatement
+ * 	: '{' OptStatementList '}'
+ * 	;
+ */
+func (p *Parser) BlockStatement() *ast.BlockStatement {
+	var body []ast.Statement
+	p.eat(token.LBRACE)
+
+	if p.peekToken.Type != token.RBRACE {
+		body = p.StatementList(token.RBRACE)
+	} else {
+		body = []ast.Statement{}
+	}
+
+	p.eat(token.RBRACE)
+
+	return ast.NewBlockStatement(p.peekToken, body)
 }
 
 /**
@@ -153,4 +179,8 @@ func (p *Parser) eat(tokenType token.TokenType) (t token.Token, ok bool) {
 
 func (p *Parser) isAtEnd() bool {
 	return p.peekToken.Type == token.EOF
+}
+
+func (p *Parser) match(expected token.TokenType) bool {
+	return p.peekToken.Type == expected
 }

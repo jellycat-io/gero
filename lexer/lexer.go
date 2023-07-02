@@ -20,6 +20,8 @@ var specs = map[string]token.TokenType{
 	//-----------------------------------
 	// Symbols, delimiters
 	"^;": token.SEMI,
+	"^{": token.LBRACE,
+	"^}": token.RBRACE,
 	//-----------------------------------
 	// Numbers
 	"^[0-9]*(\\.[0-9]+)": token.FLOAT,

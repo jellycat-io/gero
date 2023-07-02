@@ -43,6 +43,21 @@ func NewExpressionStatement(t token.Token, e Expression) *ExpressionStatement {
 	}
 }
 
+type BlockStatement struct {
+	Type  string
+	Token token.Token // the first token of the expression
+	Body  []Statement
+}
+
+func (bs *BlockStatement) statementNode() {}
+func NewBlockStatement(t token.Token, stmts []Statement) *BlockStatement {
+	return &BlockStatement{
+		Type:  "BlockStatement",
+		Token: t,
+		Body:  stmts,
+	}
+}
+
 type IntegerLiteral struct {
 	Type  string
 	Token token.Token
