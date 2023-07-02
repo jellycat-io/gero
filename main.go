@@ -1,7 +1,21 @@
 package main
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/jellycat-io/gero/lexer"
+	"github.com/jellycat-io/gero/parser"
+)
 
 func main() {
-	fmt.Print("Hello World!")
+	input := `"Hello"`
+	l := lexer.New(input)
+	p := parser.New(l)
+	program := p.Program()
+	json, err := json.MarshalIndent(program, "", "  ")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(string(json))
 }
