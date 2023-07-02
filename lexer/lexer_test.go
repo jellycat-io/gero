@@ -8,26 +8,34 @@ import (
 
 func TestNextToken(t *testing.T) {
 	input := `
+		// This is a comment
 		42
-		"Hello"
+		3.14
+		/**
+		 * Another comment
+		 */
+		"hello"
+		""
 	`
 
 	tests := []struct {
 		expectedType    token.TokenType
 		expectedLiteral string
 	}{
-		{token.NEWLINE, ""},
 		{token.INT, "42"},
-		{token.NEWLINE, ""},
-		{token.STRING, "Hello"},
-		{token.NEWLINE, ""},
+		{token.FLOAT, "3.14"},
+		{token.STRING, `"hello"`},
+		{token.STRING, `""`},
 		{token.EOF, ""},
 	}
 
 	l := New(input)
 
 	for i, tt := range tests {
-		tok := l.NextToken()
+		tok, err := l.NextToken()
+		if err != nil {
+			t.Error(err.Error())
+		}
 
 		if tok.Type != tt.expectedType {
 			t.Fatalf("Tests[%d] - Wrong token type. Expected = %q, got = %q", i, tt.expectedType, tok.Type)

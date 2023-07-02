@@ -1,125 +1,90 @@
 package lexer
 
 import (
-	"strings"
+	"errors"
+	"fmt"
+	"regexp"
 
 	"github.com/jellycat-io/gero/token"
 )
 
+var specs = map[string]token.TokenType{
+	//-----------------------------------
+	// Skipped
+	"^\\s+":                   token.WHITESPACE,
+	"^\\t+":                   token.WHITESPACE,
+	"^\\n":                    token.NEWLINE,
+	"^\\/\\/.*":               token.COMMENT,
+	"^\\/\\*[\\s\\S]*?\\*\\/": token.COMMENT,
+	//-----------------------------------
+	// Numbers
+	"^[0-9]*(\\.[0-9]+)": token.FLOAT,
+	"^\\d+":              token.INT,
+	//-----------------------------------
+	// Strings
+	`^"[^"]*"`: token.STRING,
+	`^'[^']*'`: token.STRING,
+}
+
 // Lazily pulls a token from a stream.
 type Lexer struct {
-	input        string
-	position     int
-	readPosition int
-	line         int
-	ch           byte
+	input  string
+	line   int
+	cursor int
 }
 
 func New(input string) *Lexer {
-	l := &Lexer{input: input, line: 1}
-	l.readChar()
+	l := &Lexer{input: input, cursor: 0, line: 1}
 	return l
 }
 
-func (l *Lexer) readChar() {
-	if l.readPosition >= len(l.input) {
-		l.ch = 0
-	} else {
-		l.ch = l.input[l.readPosition]
+func (l *Lexer) NextToken() (token.Token, error) {
+	if !l.hasMoreTokens() {
+		return l.newToken(token.EOF, ""), nil
 	}
-	l.position = l.readPosition
-	l.readPosition += 1
-}
 
-func (l *Lexer) peekChar() byte {
-	if l.readPosition >= len(l.input) {
-		return '0'
-	} else {
-		return l.input[l.readPosition]
-	}
-}
+	s := l.input[l.cursor:len(l.input)]
 
-func (l *Lexer) NextToken() token.Token {
-	var tok token.Token
+	for regex, tokenType := range specs {
+		value, ok := l.match(regex, s)
 
-	l.skipWhitespace()
-
-	switch l.ch {
-	case '\n':
-		l.line++
-		tok.Type = token.NEWLINE
-		tok.Literal = ""
-		l.readChar()
-	case 0:
-		tok.Type = token.EOF
-		tok.Literal = ""
-	case '"':
-		tok.Type = token.STRING
-		tok.Literal = l.readString()
-	default:
-		if isDigit(l.ch) {
-			tok.Literal = l.readNumber()
-			if isFloat(tok.Literal) {
-				tok.Type = token.FLOAT
-			} else {
-				tok.Type = token.INT
-			}
-			return tok
-		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+		if !ok {
+			continue
 		}
-	}
 
-	l.readChar()
-	return tok
-}
-
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
-		l.readChar()
-	}
-}
-
-func (l *Lexer) readNumber() string {
-	position := l.position
-	for isDigit(l.ch) {
-		l.readChar()
-	}
-
-	if l.ch == '.' && isDigit(l.input[l.readPosition]) {
-		l.readChar()
-
-		for isDigit(l.ch) {
-			l.readChar()
+		if tokenType == token.NEWLINE {
+			// TODO: Fix line increment
+			l.line += 1
+			return l.NextToken()
 		}
-	}
 
-	return l.input[position:l.position]
-}
-
-func (l *Lexer) readString() string {
-	position := l.position + 1
-	for {
-		l.readChar()
-		if l.ch == '"' || l.ch == '0' {
-			break
+		if tokenType == token.WHITESPACE || tokenType == token.COMMENT {
+			return l.NextToken()
 		}
+
+		return l.newToken(tokenType, value), nil
 	}
-	return l.input[position:l.position]
+
+	return l.newToken(token.ILLEGAL, ""), errors.New(fmt.Sprintf(`Unexpected token "%s" at line %d`, string(s[0]), l.line))
 }
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
-	return token.Token{Type: tokenType, Literal: string(ch)}
+func (l *Lexer) hasMoreTokens() bool {
+	return l.cursor < len(l.input)
 }
 
-func isLetter(ch byte) bool {
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
+func (l *Lexer) match(regex string, input string) (s string, ok bool) {
+	re := regexp.MustCompile(regex)
+	matched := re.FindString(input)
+
+	if matched == "" {
+		return "", false
+	}
+
+	l.cursor += len(matched)
+	fmt.Printf(`"%v"`, matched)
+	return matched, true
 }
 
-func isDigit(ch byte) bool {
-	return '0' <= ch && ch <= '9'
-}
-
-func isFloat(n string) bool {
-	return strings.Contains(n, ".")
+func (l *Lexer) newToken(tokenType token.TokenType, value string) token.Token {
+	return token.Token{Type: tokenType, Literal: string(value), Line: l.line}
 }

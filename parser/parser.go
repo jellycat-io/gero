@@ -6,6 +6,7 @@ package parser
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 
 	"github.com/jellycat-io/gero/ast"
@@ -21,7 +22,11 @@ type Parser struct {
 
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{l: l}
-	p.peekToken = p.l.NextToken()
+	tok, err := p.l.NextToken()
+	if err != nil {
+		log.Fatal(err)
+	}
+	p.peekToken = tok
 	return p
 }
 
@@ -32,7 +37,7 @@ func (p *Parser) Errors() []string {
 func (p *Parser) Program() *ast.Program {
 	program := &ast.Program{}
 	program.Body = []ast.Expression{}
-	for p.peekToken.Type != token.EOF {
+	for !p.isAtEnd() {
 		program.Body = append(program.Body, p.Literal())
 	}
 	return program
@@ -64,7 +69,7 @@ func (p *Parser) IntegerLiteral() *ast.IntegerLiteral {
 
 func (p *Parser) StringLiteral() *ast.StringLiteral {
 	tok := p.eat(token.STRING)
-	return &ast.StringLiteral{Token: tok, Value: tok.Literal}
+	return &ast.StringLiteral{Token: tok, Value: tok.Literal[1 : len(tok.Literal)-1]}
 }
 
 func (p *Parser) eat(tokenType token.TokenType) token.Token {
@@ -75,7 +80,15 @@ func (p *Parser) eat(tokenType token.TokenType) token.Token {
 		p.errors = append(p.errors, msg)
 	}
 
-	p.peekToken = p.l.NextToken()
+	tok, err := p.l.NextToken()
+	if err != nil {
+		log.Fatal(err)
+	}
+	p.peekToken = tok
 
 	return token
+}
+
+func (p *Parser) isAtEnd() bool {
+	return p.peekToken.Type == token.EOF
 }

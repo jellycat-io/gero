@@ -5,6 +5,7 @@ type TokenType string
 type Token struct {
 	Type    TokenType
 	Literal string
+	Line    int
 }
 
 var keywords = map[string]TokenType{
@@ -27,9 +28,11 @@ func LookupIdent(ident string) TokenType {
 }
 
 const (
-	ILLEGAL = "ILLEGAL"
-	NEWLINE = "NEWLINE"
-	EOF     = "EOF"
+	ILLEGAL    = "ILLEGAL"
+	WHITESPACE = "WHITESPACE"
+	COMMENT    = "COMMENT"
+	NEWLINE    = "NEWLINE"
+	EOF        = "EOF"
 
 	// Identifiers + literals
 	IDENT  = "IDENT"
