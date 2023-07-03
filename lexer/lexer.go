@@ -2,10 +2,9 @@ package lexer
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 
-	"github.com/TwiN/go-color"
+	geroError "github.com/jellycat-io/gero/error"
 	"github.com/jellycat-io/gero/token"
 )
 
@@ -30,6 +29,7 @@ var specs = map[string]token.TokenType{
 	"^-":   token.MINUS,
 	"^\\*": token.ASTERISK,
 	"^\\/": token.SLASH,
+	"^%":   token.PERCENT,
 	//-----------------------------------
 	// Numbers
 	"^[0-9]*(\\.[0-9]+)": token.FLOAT,
@@ -79,11 +79,11 @@ func (l *Lexer) NextToken() interface{} {
 		return l.newToken(tokenType, value)
 	}
 
-	log.Fatalf(color.InRed(fmt.Sprintf(
+	geroError.PrintError(geroError.SYNTAX_ERROR, fmt.Sprintf(
 		`Syntax error: Unexpected token "%s" at line %d`,
 		string(s[0]),
 		l.line,
-	)))
+	))
 	return nil
 }
 

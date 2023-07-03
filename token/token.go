@@ -46,6 +46,7 @@ const (
 	MINUS    = "-"
 	ASTERISK = "*"
 	SLASH    = "/"
+	PERCENT  = "%"
 	BANG     = "!"
 	EQ       = "=="
 	NOT_EQ   = "!="

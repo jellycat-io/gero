@@ -136,7 +136,7 @@ func (p *Parser) AdditiveExpression() ast.Expression {
  * 	;
  */
 func (p *Parser) MultiplicativeExpression() ast.Expression {
-	return p.BinaryExpression(p.PrimaryExpression, token.ASTERISK, token.SLASH)
+	return p.BinaryExpression(p.PrimaryExpression, token.ASTERISK, token.SLASH, token.PERCENT)
 }
 
 func (p *Parser) BinaryExpression(builder func() ast.Expression, ops ...token.TokenType) ast.Expression {
@@ -200,6 +200,7 @@ func (p *Parser) Literal() ast.Expression {
 	default:
 		msg := fmt.Sprintf("Unexpected literal %q at line %d", p.peekToken.Type, p.peekToken.Line)
 		p.errors = append(p.errors, msg)
+		//geroError.PrintError(geroError.PARSER_ERROR, msg)
 		return nil
 	}
 }
@@ -213,6 +214,7 @@ func (p *Parser) IntegerLiteral() *ast.IntegerLiteral {
 	if err != nil {
 		msg := fmt.Sprintf("could not parse %q as integer at line %d", tok.Literal, tok.Line)
 		p.errors = append(p.errors, msg)
+		//geroError.PrintError(geroError.PARSER_ERROR, msg)
 	}
 
 	return ast.NewIntegerLiteral(tok, int64(value))
@@ -232,6 +234,7 @@ func (p *Parser) eat(tokenType token.TokenType) interface{} {
 	if curToken.Type != tokenType {
 		msg := fmt.Sprintf("Unexpected token %q, expected %q at line %d", curToken.Type, tokenType, curToken.Line)
 		p.errors = append(p.errors, msg)
+		//geroError.PrintError(geroError.PARSER_ERROR, msg)
 		return nil
 	}
 

@@ -100,6 +100,7 @@ func TestParsingBinaryExpression(t *testing.T) {
 		{"2 - 2;", 2, "-", 2},
 		{"2 * 2;", 2, "*", 2},
 		{"2 / 2;", 2, "/", 2},
+		{"2 % 2;", 2, "%", 2},
 	}
 
 	for _, tt := range tests {
