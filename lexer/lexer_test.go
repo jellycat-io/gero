@@ -17,6 +17,10 @@ func TestNextToken(t *testing.T) {
 		"hello"
 		""
 		{ "hello"; }
+		2 + 2;
+		2 - 2;
+		2 * 2;
+		2 / 2;
 	`
 
 	tests := []struct {
@@ -31,15 +35,31 @@ func TestNextToken(t *testing.T) {
 		{token.STRING, `"hello"`},
 		{token.SEMI, `;`},
 		{token.RBRACE, `}`},
+		{token.INT, `2`},
+		{token.PLUS, `+`},
+		{token.INT, `2`},
+		{token.SEMI, `;`},
+		{token.INT, `2`},
+		{token.MINUS, `-`},
+		{token.INT, `2`},
+		{token.SEMI, `;`},
+		{token.INT, `2`},
+		{token.ASTERISK, `*`},
+		{token.INT, `2`},
+		{token.SEMI, `;`},
+		{token.INT, `2`},
+		{token.SLASH, `/`},
+		{token.INT, `2`},
+		{token.SEMI, `;`},
 		{token.EOF, ""},
 	}
 
 	l := New(input)
 
 	for i, tt := range tests {
-		tok, err := l.NextToken()
-		if err != nil {
-			t.Error(err.Error())
+		tok, ok := l.NextToken().(token.Token)
+		if !ok {
+			return
 		}
 
 		if tok.Type != tt.expectedType {

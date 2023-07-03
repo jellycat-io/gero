@@ -1,8 +1,8 @@
 package lexer
 
 import (
-	"errors"
 	"fmt"
+	"log"
 	"regexp"
 
 	"github.com/TwiN/go-color"
@@ -15,13 +15,21 @@ var specs = map[string]token.TokenType{
 	"^\\s+":                   token.WHITESPACE,
 	"^\\t+":                   token.WHITESPACE,
 	"^\\n":                    token.NEWLINE,
-	"^\\/\\/.*":               token.COMMENT,
 	"^\\/\\*[\\s\\S]*?\\*\\/": token.COMMENT,
+	"^\\/\\/.*":               token.COMMENT,
 	//-----------------------------------
 	// Symbols, delimiters
-	"^;": token.SEMI,
-	"^{": token.LBRACE,
-	"^}": token.RBRACE,
+	"^;":   token.SEMI,
+	"^{":   token.LBRACE,
+	"^}":   token.RBRACE,
+	"^\\(": token.LPAREN,
+	"^\\)": token.RPAREN,
+	//-----------------------------------
+	// Math operators
+	"^\\+": token.PLUS,
+	"^-":   token.MINUS,
+	"^\\*": token.ASTERISK,
+	"^\\/": token.SLASH,
 	//-----------------------------------
 	// Numbers
 	"^[0-9]*(\\.[0-9]+)": token.FLOAT,
@@ -44,9 +52,9 @@ func New(input string) *Lexer {
 	return l
 }
 
-func (l *Lexer) NextToken() (token.Token, error) {
+func (l *Lexer) NextToken() interface{} {
 	if !l.hasMoreTokens() {
-		return l.newToken(token.EOF, ""), nil
+		return l.newToken(token.EOF, "")
 	}
 
 	s := l.input[l.cursor:len(l.input)]
@@ -60,7 +68,7 @@ func (l *Lexer) NextToken() (token.Token, error) {
 
 		if tokenType == token.NEWLINE {
 			// TODO: Fix line increment
-			l.line += 1
+			l.line++
 			return l.NextToken()
 		}
 
@@ -68,14 +76,15 @@ func (l *Lexer) NextToken() (token.Token, error) {
 			return l.NextToken()
 		}
 
-		return l.newToken(tokenType, value), nil
+		return l.newToken(tokenType, value)
 	}
 
-	return l.newToken(token.ILLEGAL, ""), errors.New(color.InRed(fmt.Sprintf(
+	log.Fatalf(color.InRed(fmt.Sprintf(
 		`Syntax error: Unexpected token "%s" at line %d`,
 		string(s[0]),
 		l.line,
 	)))
+	return nil
 }
 
 func (l *Lexer) hasMoreTokens() bool {

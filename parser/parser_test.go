@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jellycat-io/gero/ast"
@@ -18,8 +19,8 @@ func TestParsingStatementList(t *testing.T) {
 	program := p.Program()
 	checkParserErrors(t, p)
 
-	if len(program.Body) != 2 {
-		t.Fatalf("Program has wrong number of statements. Expected=%d, got=%d", 2, len(program.Body))
+	if len(program.Statements) != 2 {
+		t.Fatalf("Program has wrong number of statements. Expected=%d, got=%d", 2, len(program.Statements))
 	}
 }
 
@@ -34,14 +35,14 @@ func TestParsingExpressionStatement(t *testing.T) {
 	program := p.Program()
 	checkParserErrors(t, p)
 
-	_, ok := program.Body[0].(*ast.ExpressionStatement)
+	_, ok := program.Statements[0].(*ast.ExpressionStatement)
 	if !ok {
-		t.Fatalf("program.Body[0] is not ast.ExpressionStatement, got=%T", program.Body[0])
+		t.Fatalf("program.Body[0] is not ast.ExpressionStatement, got=%T", program.Statements[0])
 	}
 
-	_, ok = program.Body[1].(*ast.ExpressionStatement)
+	_, ok = program.Statements[1].(*ast.ExpressionStatement)
 	if !ok {
-		t.Fatalf("program.Body[1] is not ast.ExpressionStatement, got=%T", program.Body[1])
+		t.Fatalf("program.Body[1] is not ast.ExpressionStatement, got=%T", program.Statements[1])
 	}
 }
 
@@ -61,9 +62,9 @@ func TestParsingBlockStatement(t *testing.T) {
 		program := p.Program()
 		checkParserErrors(t, p)
 
-		block, ok := program.Body[0].(*ast.BlockStatement)
+		block, ok := program.Statements[0].(*ast.BlockStatement)
 		if !ok {
-			t.Fatalf("program.Body[0] is not ast.BlockStatement, got=%T", program.Body[0])
+			t.Fatalf("program.Body[0] is not ast.BlockStatement, got=%T", program.Statements[0])
 		}
 
 		if len(block.Body) != tt.expected {
@@ -72,7 +73,7 @@ func TestParsingBlockStatement(t *testing.T) {
 
 		if len(block.Body) > 0 {
 			stmt := block.Body[0].(*ast.ExpressionStatement)
-			testIntegerLiteral(t, stmt.Expression, 5)
+			testLiteralExpression(t, stmt.Expression, 5)
 
 			nested, ok := block.Body[1].(*ast.BlockStatement)
 			if ok {
@@ -81,9 +82,36 @@ func TestParsingBlockStatement(t *testing.T) {
 				}
 			} else {
 				stmt = block.Body[1].(*ast.ExpressionStatement)
-				testStringLiteral(t, stmt.Expression, "hello world")
+				testLiteralExpression(t, stmt.Expression, "hello world")
 			}
 
+		}
+	}
+}
+
+func TestParsingBinaryExpression(t *testing.T) {
+	tests := []struct {
+		input    string
+		left     interface{}
+		operator string
+		right    interface{}
+	}{
+		{"2 + 2;", 2, "+", 2},
+		{"2 - 2;", 2, "-", 2},
+		{"2 * 2;", 2, "*", 2},
+		{"2 / 2;", 2, "/", 2},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		program := p.Program()
+		checkParserErrors(t, p)
+
+		stmt := program.Statements[0].(*ast.ExpressionStatement)
+
+		if !testBinaryExpression(t, stmt.Expression, tt.left, tt.operator, tt.right) {
+			return
 		}
 	}
 }
@@ -96,9 +124,9 @@ func TestParsingIntegerLiteral(t *testing.T) {
 	program := p.Program()
 	checkParserErrors(t, p)
 
-	stmt := program.Body[0].(*ast.ExpressionStatement)
+	stmt := program.Statements[0].(*ast.ExpressionStatement)
 
-	testIntegerLiteral(t, stmt.Expression, 5)
+	testLiteralExpression(t, stmt.Expression, 5)
 }
 
 func TestParsingStringLiteral(t *testing.T) {
@@ -112,10 +140,55 @@ func TestParsingStringLiteral(t *testing.T) {
 	program := p.Program()
 	checkParserErrors(t, p)
 
-	stmt := program.Body[0].(*ast.ExpressionStatement)
-	testStringLiteral(t, stmt.Expression, "hello world")
-	stmt = program.Body[1].(*ast.ExpressionStatement)
-	testStringLiteral(t, stmt.Expression, "hello world")
+	stmt := program.Statements[0].(*ast.ExpressionStatement)
+	testLiteralExpression(t, stmt.Expression, "hello world")
+	stmt = program.Statements[1].(*ast.ExpressionStatement)
+	testLiteralExpression(t, stmt.Expression, "hello world")
+}
+
+func TestOperatorPrecedence(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{
+			"2 + 2 * 2;",
+			"(2 + (2 * 2))",
+		},
+		{
+			"2 * 2 + 2;",
+			"((2 * 2) + 2)",
+		},
+		{
+			"(2 + 2) * 2;",
+			"((2 + 2) * 2)",
+		},
+		{
+			"2 - 2 / 2;",
+			"(2 - (2 / 2))",
+		},
+		{
+			"2 / 2 - 2;",
+			"((2 / 2) - 2)",
+		},
+		{
+			"(2 - 2) / 2;",
+			"((2 - 2) / 2)",
+		},
+	}
+
+	for _, tt := range tests {
+		l := lexer.New(tt.input)
+		p := New(l)
+		actual := p.Program().String()
+		checkParserErrors(t, p)
+
+		fmt.Println(actual)
+
+		if actual != tt.expected {
+			t.Errorf("Program is incorrect. Expected=%v+, got=%v+", tt.expected, actual)
+		}
+	}
 }
 
 func checkParserErrors(t *testing.T, p *Parser) {
@@ -129,6 +202,31 @@ func checkParserErrors(t *testing.T, p *Parser) {
 		t.Errorf("Parser error: %q", msg)
 	}
 	t.FailNow()
+}
+
+func testBinaryExpression(
+	t *testing.T,
+	exp ast.Expression,
+	left interface{},
+	operator string,
+	right interface{},
+) bool {
+	be, ok := exp.(*ast.BinaryExpression)
+	if !ok {
+		t.Errorf("Expression is not *ast.BinaryExpression. got=%T", be)
+		return false
+	}
+	if !testLiteralExpression(t, be.Left, left) {
+		return false
+	}
+	if be.Operator != operator {
+		return false
+	}
+	if !testLiteralExpression(t, be.Right, right) {
+		return false
+	}
+
+	return true
 }
 
 func testLiteralExpression(

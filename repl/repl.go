@@ -40,7 +40,7 @@ func Start(in io.Reader, out io.Writer) {
 			util.PrintParserErrors(out, p.Errors())
 		}
 
-		json, err := json.MarshalIndent(program, "", "  ")
+		json, err := json.MarshalIndent(program, "", "    ")
 		if err != nil {
 			io.WriteString(out, err.Error())
 		}

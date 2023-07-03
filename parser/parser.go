@@ -21,10 +21,12 @@ type Parser struct {
 
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{l: l}
-	tok, err := p.l.NextToken()
-	if err != nil {
-		fmt.Printf(err.Error())
+
+	tok, ok := p.l.NextToken().(token.Token)
+	if !ok {
+		return nil
 	}
+
 	p.peekToken = tok
 	return p
 }
@@ -114,7 +116,72 @@ func (p *Parser) ExpressionStatement() *ast.ExpressionStatement {
  * 	;
  */
 func (p *Parser) Expression() ast.Expression {
-	return p.Literal()
+	return p.AdditiveExpression()
+}
+
+/**
+ * AdditiveExpression
+ * 	: MultiplicativeExpression
+ * 	| AdditiveExpression ADDITIVE_OPERATOR MultiplicativeExpression -> MultiplicativeExpression ADDITIVE_OPERATOR MultiplicativeExpression ADDITIVE_OPERATOR MultiplicativeExpression
+ * 	;
+ */
+func (p *Parser) AdditiveExpression() ast.Expression {
+	return p.BinaryExpression(p.MultiplicativeExpression, token.PLUS, token.MINUS)
+}
+
+/**
+ * MultiplicativeExpression
+ * 	: PrimaryExpression
+ * 	| MultiplicativeExpression MULTIPLICATIVE_OPERATOR PrimaryExpression -> PrimaryExpression MULTIPLICATIVE_OPERATOR PrimaryExpression MULTIPLICATIVE_OPERATOR PrimaryExpression
+ * 	;
+ */
+func (p *Parser) MultiplicativeExpression() ast.Expression {
+	return p.BinaryExpression(p.PrimaryExpression, token.ASTERISK, token.SLASH)
+}
+
+func (p *Parser) BinaryExpression(builder func() ast.Expression, ops ...token.TokenType) ast.Expression {
+	left := builder()
+
+	for _, op := range ops {
+		for p.match(op) {
+			var operator token.Token
+			operator = p.eat(op).(token.Token)
+
+			right := builder()
+
+			left = ast.NewBinaryExpression(operator.Literal, left, right)
+		}
+	}
+
+	return left
+}
+
+/**
+ * PrimaryExpression
+ * 	: Literal
+ *	| GroupedExpression
+ * 	;
+ */
+func (p *Parser) PrimaryExpression() ast.Expression {
+	switch p.peekToken.Type {
+	case token.LPAREN:
+		return p.GroupedExpression()
+	default:
+		return p.Literal()
+	}
+}
+
+/**
+ * GroupedExpression
+ * 	: Literal
+ * 	;
+ */
+func (p *Parser) GroupedExpression() ast.Expression {
+	p.eat(token.LPAREN)
+	exp := p.Expression()
+	p.eat(token.RPAREN)
+
+	return exp
 }
 
 /**
@@ -138,7 +205,7 @@ func (p *Parser) Literal() ast.Expression {
 }
 
 func (p *Parser) IntegerLiteral() *ast.IntegerLiteral {
-	tok, ok := p.eat(token.INT)
+	tok, ok := p.eat(token.INT).(token.Token)
 	if !ok {
 		return nil
 	}
@@ -152,29 +219,30 @@ func (p *Parser) IntegerLiteral() *ast.IntegerLiteral {
 }
 
 func (p *Parser) StringLiteral() *ast.StringLiteral {
-	tok, ok := p.eat(token.STRING)
+	tok, ok := p.eat(token.STRING).(token.Token)
 	if !ok {
 		return nil
 	}
 	return ast.NewStringLiteral(tok, tok.Literal[1:len(tok.Literal)-1])
 }
 
-func (p *Parser) eat(tokenType token.TokenType) (t token.Token, ok bool) {
-	token := p.peekToken
+func (p *Parser) eat(tokenType token.TokenType) interface{} {
+	curToken := p.peekToken
 
-	if token.Type != tokenType {
-		msg := fmt.Sprintf("Unexpected token %q, expected %q at line %d", token.Literal, tokenType, token.Line)
+	if curToken.Type != tokenType {
+		msg := fmt.Sprintf("Unexpected token %q, expected %q at line %d", curToken.Type, tokenType, curToken.Line)
 		p.errors = append(p.errors, msg)
-		return token, false
+		return nil
 	}
 
-	tok, err := p.l.NextToken()
-	if err != nil {
-		fmt.Printf(err.Error())
+	tok, ok := p.l.NextToken().(token.Token)
+	if !ok {
+		return nil
 	}
+
 	p.peekToken = tok
 
-	return token, true
+	return curToken
 }
 
 func (p *Parser) isAtEnd() bool {
